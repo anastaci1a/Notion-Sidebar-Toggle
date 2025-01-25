@@ -11,13 +11,11 @@
 // @run-at document-idle
 // ==/UserScript==
 
-let alreadyCalled = null;
+// config
+let hideOnStart = true;
 
 (function () {
     'use strict';
-
-    // settings
-    let hideOnStart = true;
 
     // sidebar-adjacent vars
     let sidebarEnable = true;
