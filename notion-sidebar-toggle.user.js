@@ -110,7 +110,7 @@
     // detect and handle sidebar state (whether it is open or not)
 
     debugLog('Waiting for page to generate...');
-    waitForElems(JQ_ELEMS_LAYOUT_AWAIT, () => {
+    waitForElems([...JQ_ELEMS_LAYOUT_AWAIT], () => {
         debugLog('Necessary elements detected.', 'Handling sidebar state...');
         detectSidebarState(
             () => {
@@ -208,7 +208,7 @@
     }
 
     function sidebarHide() {
-        waitForElemsLive(JQ_ELEMS_LAYOUT_AWAIT, () => {
+        waitForElemsLive([...JQ_ELEMS_LAYOUT_AWAIT], () => {
             debugLog('[sidebarHide]', 'HIDING SIDEBAR!!!');
 
             const btSidebarOpen = document.querySelector(".notion-open-sidebar");
@@ -229,7 +229,7 @@
     }
 
     function sidebarShow() {
-        waitForElemsLive(JQ_ELEMS_LAYOUT_AWAIT, () => {
+        waitForElemsLive([...JQ_ELEMS_LAYOUT_AWAIT], () => {
             debugLog('[sidebarShow]', 'SHOWING SIDEBAR!');
 
             const btSidebarOpen = document.querySelector(".notion-open-sidebar");
