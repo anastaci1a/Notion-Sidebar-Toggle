@@ -1,6 +1,8 @@
 # Notion - Sidebar Toggle Button
 ### A Tampermonkey/Greasemonkey userscript which adds a hide/show toggle for Notion's sidebar.
 
+[Install the userscript](https://raw.githubusercontent.com/anastaci1a/Notion-Sidebar-Toggle/refs/heads/master/notion-sidebar-toggle.user.js) with Tampermonkey or Greasemonkey enabled.
+
 > [!NOTE]
 > The new [app.notion.com](https://app.notion.com/) URL/UI is now supported!
 
