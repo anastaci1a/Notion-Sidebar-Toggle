@@ -6,8 +6,6 @@
 // @author       Roznoshchik, forked by anastaci1a
 // @match        https://app.notion.com/*
 // @grant        none
-// @require      https://gist.githubusercontent.com/Anemone95/d133848ae16055ea0efc5d0f45d33e1e/raw/a0f48d1c1664afc17bc81a5dd83337a16c9dea31/waitForKeyElements.js
-// @require      https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js
 // @run-at       document-start
 // ==/UserScript==
 
@@ -124,23 +122,32 @@
     };
 
 
+    // init
+
+    function initDetection() {
+        detectSidebarState(
+            () => {
+                debugLog('[initDetection]', 'Detected locked open sidebar.');
+                handleSidebarClosed();
+            }, () => {
+                debugLog('[initDetection]', 'Detected closed sidebar.');
+                handleSidebarClosed();
+            }
+        );
+    }
+
+
     // detection
 
-    function detectSidebarOpened(handle) {
-        waitForElem(JQ_ELEM_BT_SIDEBAR_CLOSE, handle);
-    }
-
-    function detectSidebarClosed(handle) {
-        waitForElem(JQ_ELEM_BT_SIDEBAR_OPEN, handle);
-    }
-
     function detectSidebarState(handleOpened, handleClosed) {
-        const detectState = new Promise((resolve, reject) => {
-            detectSidebarOpened(resolve);
-            detectSidebarClosed(reject);
+        // Use one wait so the losing branch cannot keep polling indefinitely.
+        waitForElem(`${JQ_ELEM_BT_SIDEBAR_CLOSE}, ${JQ_ELEM_BT_SIDEBAR_OPEN}`, () => {
+            if (document.querySelector(JQ_ELEM_BT_SIDEBAR_CLOSE)) {
+                handleOpened();
+            } else {
+                handleClosed();
+            }
         });
-
-        detectState.then(handleOpened, handleClosed);
     }
 
 
@@ -161,35 +168,25 @@
 
     // management
 
-    async function manageSidebarClosed() {
-        if (!BT_TOGGLE.enabled) { // if sidebar is visible, await closing
-            // debugLog('[manageSidebarClosed]', 'Detecting \'Lock sidebar open\' button...');
-            waitForElem(JQ_ELEM_BT_SIDEBAR_OPEN, elem => {
-                debugLog('[manageSidebarClosed]', 'Waiting for sidebar to open...');
+    // Notion replaces these controls during renders. Delegate once to a stable
+    // ancestor, in capture phase before Notion can remove nodes or stop bubbling.
+    document.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
 
-                elem.addEventListener("click", () => {
-                    debugLog('[manageSidebarClosed]', 'Sidebar was opened! 🟩🟢🟩');
+        // The selector can identify an icon inside the actual clickable control.
+        const control = target.closest('button, [role="button"]');
+        const matchesControl = (selector) => target.closest(selector)
+            || control?.querySelector(selector);
 
-                    handleSidebarOpened();
-                    manageSidebarOpened();
-                });
-            });
+        if (matchesControl(JQ_ELEM_BT_SIDEBAR_CLOSE)) {
+            debugLog('[sidebarClick]', 'Sidebar was closed! 🟥🔴🟥');
+            handleSidebarClosed();
+        } else if (matchesControl(JQ_ELEM_BT_SIDEBAR_OPEN)) {
+            debugLog('[sidebarClick]', 'Sidebar was opened! 🟩🟢🟩');
+            handleSidebarOpened();
         }
-    }
-
-    async function manageSidebarOpened() {
-        // debugLog('[manageSidebarOpened]', 'Detecting \'Close sidebar\' button...');
-        waitForElem(JQ_ELEM_BT_SIDEBAR_CLOSE, elem => {
-            debugLog('[manageSidebarOpened]', 'Waiting for sidebar to close...');
-
-            elem.addEventListener("click", () => {
-                debugLog('[manageSidebarOpened]', 'Sidebar was closed! 🟥🔴🟥');
-
-                handleSidebarClosed();
-                manageSidebarClosed();
-            });
-        });
-    }
+    }, true);
 
 
     // show/hide sidebar
@@ -209,9 +206,11 @@
             sidebar.style.display = "none";
 
             // hide the "normal" sidebar toggle (hamburger menu)
-            btSidebarOpen.style.visibility = "hidden";
-            btSidebarOpen.parentElement.parentElement.style.visibility = "hidden";
-            btSidebarOpen.parentElement.parentElement.parentElement.style.width = "25px";
+            if (btSidebarOpen) {
+                btSidebarOpen.style.visibility = "hidden";
+                btSidebarOpen.parentElement.parentElement.style.visibility = "hidden";
+                btSidebarOpen.parentElement.parentElement.parentElement.style.width = "25px";
+            }
         });
     }
 
@@ -230,9 +229,11 @@
             sidebar.style.display = "flex";
 
             // show the "normal" sidebar toggle (hamburger menu)
-            btSidebarOpen.style.visibility = "visible";
-            btSidebarOpen.parentElement.parentElement.style.visibility = "visible";
-            btSidebarOpen.parentElement.parentElement.parentElement.style.width = "56px";
+            if (btSidebarOpen) {
+                btSidebarOpen.style.visibility = "visible";
+                btSidebarOpen.parentElement.parentElement.style.visibility = "visible";
+                btSidebarOpen.parentElement.parentElement.parentElement.style.width = "56px";
+            }
         });
     }
 
@@ -249,11 +250,11 @@
                     resolve(found);
                     break;
                 }
-                await delay(100);
+                await delay(50);
             }
         });
 
-        wait.then(found => {
+        wait.then((found) => {
             callback(found);
         });
     }
@@ -270,49 +271,14 @@
         })
     }
 
-    function waitForElemOld(elemSelector, callback) {
-        let called = false;
-        waitForKeyElements(elemSelector, (context) => {
-            if (called) return;
-            callback(context[0]);
-        }, true);
-    }
-
-    function waitForElemsOld(elemSelectors, callback) {
-        if (typeof elemSelectors == 'undefined' || elemSelectors.length == 0) {
-            debugLog(callback.toLocaleString());
-            callback.call(this);
-            return;
-        }
-
-        waitForElem(elemSelectors[0], () => {
-            elemSelectors.shift();
-            waitForElems(elemSelectors, callback);
-        })
-    }
-
 
     // main
 
     (async () => {
-        debugLog('[_main] Waiting for page to generate...');
+        debugLog('[__main__] Waiting for page to generate...');
         waitForElems([...JQ_ELEMS_LAYOUT_AWAIT], () => {
-            debugLog('[_main]', 'Necessary elements detected.', 'Detecting/handling sidebar state...');
-            detectSidebarState(
-                () => {
-                    // debugLog('[_main]', 'Detected locked open sidebar.');
-                    handleSidebarOpened();
-                    manageSidebarOpened();
-                }, () => {
-                    debugLog('[_main]', 'Detected closed sidebar.');
-                    handleSidebarClosed();
-                    manageSidebarClosed();
-                }
-            );
+            debugLog('[__main__]', 'Necessary elements detected.', 'Detecting/handling sidebar state...');
+            initDetection();
         });
-
-        while (true) {
-            await delay(1000);
-        }
     })();
 })();
