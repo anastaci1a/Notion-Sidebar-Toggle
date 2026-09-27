@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Notion - Sidebar Toggle Button
 // @namespace    https://github.com/anastaci1a/Notion-Sidebar-Toggle
-// @version      1.1.0
+// @version      1.1.2
 // @description  Adds a button to the Notion dom which toggles the sidebar visibility
 // @author       Roznoshchik, forked by anastaci1a
 // @match        https://app.notion.com/*
@@ -14,10 +14,12 @@
 (function () {
     'use strict';
 
+    let bruh = 0;
+
     // config
 
     const FORCE_HIDE_ON_START = false;
-    const DEBUG_LOG_ENABLE    = false;
+    const DEBUG_LOG_ENABLE    = true;
 
     // debug
 
@@ -38,9 +40,8 @@
     const JQ_ELEM_TOPBAR        = '.notion-topbar';
     const JQ_ELEMS_TOPBAR_INNER = `${JQ_ELEM_TOPBAR} > div > div`;
 
-    const JQ_ELEM_BT_SIDEBAR_CLOSE  = '.notion-sidebar-switcher .notion-close-sidebar';
+    const JQ_ELEM_BT_SIDEBAR_CLOSE  = '.sidebarLeft';
     const JQ_ELEM_BT_SIDEBAR_OPEN   = '.notion-open-sidebar';
-    const JQ_ELEM_BT_SIDEBAR_OPEN_2 = '.notion-sidebar [aria-label="Lock sidebar open"]';
 
     const JQ_ELEMS_LAYOUT_AWAIT = [
         '.notion-sidebar-container',
@@ -104,24 +105,28 @@
         setVis(html, css) {
             this.elem.innerHTML     = html;
             this.elem.style.cssText = css;
+        },
+
+        inject() {
+            const topbar = document.querySelector(JQ_ELEMS_TOPBAR_INNER);
+
+            if (typeof this.enabled == 'undefined') {
+                this.set(FORCE_HIDE_ON_START);
+            }
+
+            topbar.insertBefore(
+                this.elem,
+                topbar.firstChild
+            );
+        },
+
+        remove() {
+            this.elem.remove();
         }
     };
 
-    // detect and handle sidebar state (whether it is open or not)
 
-    debugLog('Waiting for page to generate...');
-    waitForElems([...JQ_ELEMS_LAYOUT_AWAIT], () => {
-        debugLog('Necessary elements detected.', 'Handling sidebar state...');
-        detectSidebarState(
-            () => {
-                handleSidebarOpened();
-                manageSidebarOpened();
-            }, () => {
-                handleSidebarClosed();
-                manageSidebarClosed();
-            }
-        );
-    });
+    // detection
 
     function detectSidebarOpened(handle) {
         waitForElem(JQ_ELEM_BT_SIDEBAR_CLOSE, handle);
@@ -140,51 +145,47 @@
         detectState.then(handleOpened, handleClosed);
     }
 
+
+    // handling
+
     function handleSidebarOpened() {
         debugLog('[handleSidebarOpened]', 'Removing sidebar toggle button...');
 
-        BT_TOGGLE.elem.remove(); // remove toggle
+        BT_TOGGLE.remove();
     }
 
     function handleSidebarClosed() {
         debugLog('[handleSidebarClosed]', 'Adding sidebar toggle button...');
 
-        sidebarInjectToggle(); // add toggle
+        BT_TOGGLE.inject();
     }
 
-    async function manageSidebarClosed() {
-        // debugLog('[manageSidebarClosed]', 'Waiting for open sidebar buttons...');
 
+    // management
+
+    async function manageSidebarClosed() {
         if (!BT_TOGGLE.enabled) { // if sidebar is visible, await closing
-            waitForElemsLive([JQ_ELEM_BT_SIDEBAR_OPEN, JQ_ELEM_BT_SIDEBAR_OPEN_2], () => {
+            // debugLog('[manageSidebarClosed]', 'Detecting \'Lock sidebar open\' button...');
+            waitForElem(JQ_ELEM_BT_SIDEBAR_OPEN, elem => {
                 debugLog('[manageSidebarClosed]', 'Waiting for sidebar to open...');
 
-                const btsSidebarOpen = [
-                    document.querySelector(JQ_ELEM_BT_SIDEBAR_OPEN),
-                    document.querySelector(JQ_ELEM_BT_SIDEBAR_OPEN_2)
-                ];
+                elem.addEventListener("click", () => {
+                    debugLog('[manageSidebarClosed]', 'Sidebar was opened! 🟩🟢🟩');
 
-                for (const bt of btsSidebarOpen) {
-                    bt.addEventListener("click", () => {
-                        debugLog('[manageSidebarClosed]', 'Sidebar was opened!');
-
-                        handleSidebarOpened();
-                        manageSidebarOpened();
-                    });
-                }
+                    handleSidebarOpened();
+                    manageSidebarOpened();
+                });
             });
         }
     }
 
     async function manageSidebarOpened() {
-        // debugLog('[manageSidebarOpened]', 'Waiting for close sidebar button...');
-
-        waitForElemLive(JQ_ELEM_BT_SIDEBAR_CLOSE, () => {
+        // debugLog('[manageSidebarOpened]', 'Detecting \'Close sidebar\' button...');
+        waitForElem(JQ_ELEM_BT_SIDEBAR_CLOSE, elem => {
             debugLog('[manageSidebarOpened]', 'Waiting for sidebar to close...');
 
-            const btSidebarClose = document.querySelector(JQ_ELEM_BT_SIDEBAR_CLOSE);
-            btSidebarClose.addEventListener("click", () => {
-                debugLog('[manageSidebarOpened]', 'Sidebar was closed!');
+            elem.addEventListener("click", () => {
+                debugLog('[manageSidebarOpened]', 'Sidebar was closed! 🟥🔴🟥');
 
                 handleSidebarClosed();
                 manageSidebarClosed();
@@ -192,30 +193,18 @@
         });
     }
 
-    // sidebar force hide/show (custom toggle)
 
-    function sidebarInjectToggle() { // assumes sidebar is closed
-        const topbar = document.querySelector(JQ_ELEMS_TOPBAR_INNER);
-
-        if (typeof BT_TOGGLE.enabled == 'undefined') {
-            BT_TOGGLE.set(FORCE_HIDE_ON_START);
-        }
-
-        topbar.insertBefore(
-            BT_TOGGLE.elem,
-            topbar.firstChild
-        );
-    }
+    // show/hide sidebar
 
     function sidebarHide() {
-        waitForElemsLive([...JQ_ELEMS_LAYOUT_AWAIT], () => {
-            debugLog('[sidebarHide]', 'HIDING SIDEBAR!!!');
+        waitForElems([...JQ_ELEMS_LAYOUT_AWAIT], () => {
+            debugLog('[sidebarHide]', 'HIDING SIDEBAR!!! 🟪🟣🟪', '(disabling sidebar elements...)');
 
             const btSidebarOpen = document.querySelector(".notion-open-sidebar");
             const sidebarContainer = document.querySelector(".notion-sidebar-container");
             const sidebar = document.querySelector(".notion-sidebar");
-            const frame = document.querySelector(".notion-frame");
-            const topbar = document.querySelector(".notion-topbar");
+            // const frame = document.querySelector(".notion-frame");
+            // const topbar = document.querySelector(".notion-topbar");
 
             // hide sidebar
             sidebarContainer.style.visibility = "hidden";
@@ -229,14 +218,14 @@
     }
 
     function sidebarShow() {
-        waitForElemsLive([...JQ_ELEMS_LAYOUT_AWAIT], () => {
-            debugLog('[sidebarShow]', 'SHOWING SIDEBAR!');
+        waitForElems([...JQ_ELEMS_LAYOUT_AWAIT], () => {
+            debugLog('[sidebarShow]', 'SHOWING SIDEBAR! 🟨🟠🟨', '(re/enabling sidebar elements...)');
 
             const btSidebarOpen = document.querySelector(".notion-open-sidebar");
             const sidebarContainer = document.querySelector(".notion-sidebar-container");
             const sidebar = document.querySelector(".notion-sidebar");
-            const frame = document.querySelector(".notion-frame");
-            const topbar = document.querySelector(".notion-topbar");
+            // const frame = document.querySelector(".notion-frame");
+            // const topbar = document.querySelector(".notion-topbar");
 
             // show sidebar
             sidebarContainer.style.visibility = "visible";
@@ -246,23 +235,34 @@
             btSidebarOpen.style.visibility = "visible";
             btSidebarOpen.parentElement.parentElement.style.visibility = "visible";
             btSidebarOpen.parentElement.parentElement.parentElement.style.width = "56px";
-
-            // reassign button event listener(s)
-            manageSidebarClosed();
         });
     }
 
+
     // util
 
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
     function waitForElem(elemSelector, callback) {
-        waitForKeyElements(elemSelector, (context) => {
-            callback.apply(context);
+        const wait = new Promise(async (resolve) => {
+            while (true) {
+                const found = document.querySelector(elemSelector);
+                if (typeof found != 'undefined' && found !== null) {
+                    resolve(found);
+                    break;
+                }
+                await delay(100);
+            }
+        });
+
+        wait.then(found => {
+            callback(found);
         });
     }
 
     function waitForElems(elemSelectors, callback) {
         if (typeof elemSelectors == 'undefined' || elemSelectors.length == 0) {
-            callback.apply(this);
+            callback();
             return;
         }
 
@@ -272,35 +272,49 @@
         })
     }
 
-    function waitForElemLive(elemSelector, callback) {
-        const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-        const wait = new Promise(async (resolve) => {
-            while (true) {
-                const found = document.querySelector(elemSelector);
-                if (typeof found != 'undefined' && found !== null) {
-                    // debugLog(`Found: (${elemSelector}):`, found);
-                    resolve(found);
-                    break;
-                }
-                await delay(200);
-            }
-        });
-
-        wait.then(() => {
-            callback.apply(this);
-        });
+    function waitForElemOld(elemSelector, callback) {
+        let called = false;
+        waitForKeyElements(elemSelector, (context) => {
+            if (called) return;
+            callback(context[0]);
+        }, true);
     }
 
-    function waitForElemsLive(elemSelectors, callback) {
+    function waitForElemsOld(elemSelectors, callback) {
         if (typeof elemSelectors == 'undefined' || elemSelectors.length == 0) {
-            callback.apply(this);
+            debugLog(callback.toLocaleString());
+            callback.call(this);
             return;
         }
 
-        waitForElemLive(elemSelectors[0], () => {
+        waitForElem(elemSelectors[0], () => {
             elemSelectors.shift();
-            waitForElemsLive(elemSelectors, callback);
+            waitForElems(elemSelectors, callback);
         })
     }
+
+
+    // main
+
+    (async () => {
+        debugLog('[_main] Waiting for page to generate...');
+        waitForElems([...JQ_ELEMS_LAYOUT_AWAIT], () => {
+            debugLog('[_main]', 'Necessary elements detected.', 'Detecting/handling sidebar state...');
+            detectSidebarState(
+                () => {
+                    // debugLog('[_main]', 'Detected locked open sidebar.');
+                    handleSidebarOpened();
+                    manageSidebarOpened();
+                }, () => {
+                    debugLog('[_main]', 'Detected closed sidebar.');
+                    handleSidebarClosed();
+                    manageSidebarClosed();
+                }
+            );
+        });
+
+        while (true) {
+            await delay(1000);
+        }
+    })();
 })();
