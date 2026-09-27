@@ -14,12 +14,10 @@
 (function () {
     'use strict';
 
-    let bruh = 0;
-
     // config
 
     const FORCE_HIDE_ON_START = false;
-    const DEBUG_LOG_ENABLE    = true;
+    const DEBUG_LOG_ENABLE    = false;
 
     // debug
 
